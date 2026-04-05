@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base layout from index.html shell: html > body > #root */
+/* Base layout from index.html shell */
 html,
 body,
 #root {
@@ -19,11 +19,16 @@ body,
 
 body {
   margin: 0;
-  background-color: #f8fafc;
+  background: radial-gradient(circle at 0% 0%, #f0f9ff 0%, #f8fafc 48%, #eef2ff 100%);
   color: #0f172a;
   overflow-x: hidden;
+  font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  background: radial-gradient(circle at 0% 0%, #111827 0%, #020617 50%, #0b1120 100%);
 }
 
 #root {
@@ -86,11 +91,11 @@ textarea {
   transition-timing-function: ease-in-out;
 }
 
-/* Custom animations */
-@keyframes slideIn {
+/* Utility animations */
+@keyframes fadeInRow {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
@@ -98,8 +103,19 @@ textarea {
   }
 }
 
-.animate-slide-in {
-  animation: slideIn 0.3s ease-out;
+@keyframes contentLift {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-content-lift {
+  animation: contentLift 0.35s ease-out;
 }
 
 /* Recharts layout stability inside grid/flex containers */
