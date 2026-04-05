@@ -1,5 +1,6 @@
 import { Download, Plus, Search } from 'lucide-react';
 import { useDashboard } from '../../context/DashboardContext';
+import { buildCsv } from '../../utils/exporters';
 
 function downloadFile(content, filename, type) {
   const blob = new Blob([content], { type });
@@ -24,7 +25,7 @@ function TransactionsToolbar({ onAdd }) {
       txn.amount,
       txn.status,
     ]);
-    const content = [headers, ...rows].map((row) => row.join(',')).join('\n');
+    const content = buildCsv(headers, rows);
     downloadFile(content, `transactions-${Date.now()}.csv`, 'text/csv');
   };
 

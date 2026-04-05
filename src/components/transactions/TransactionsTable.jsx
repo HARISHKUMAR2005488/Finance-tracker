@@ -3,8 +3,8 @@ import { useDashboard } from '../../context/DashboardContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import EmptyState from '../ui/EmptyState';
 
-function TransactionsTable({ onEdit }) {
-  const { filteredTransactions, role, deleteTransaction } = useDashboard();
+function TransactionsTable({ onEdit, onDeleteRequest }) {
+  const { filteredTransactions, role } = useDashboard();
 
   if (filteredTransactions.length === 0) {
     return (
@@ -73,7 +73,7 @@ function TransactionsTable({ onEdit }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => deleteTransaction(txn.id)}
+                        onClick={() => onDeleteRequest(txn)}
                         className="rounded-md border border-rose-200 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30"
                         aria-label="Delete transaction"
                       >

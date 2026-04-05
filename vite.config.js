@@ -11,5 +11,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
+          if (id.includes('recharts')) return 'recharts-core';
+          if (id.includes('d3-') || id.includes('/victory-vendor/')) return 'charts-vendor';
+          if (id.includes('lucide-react')) return 'icons';
+
+          return undefined;
+        },
+      },
+    },
   },
 })

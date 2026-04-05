@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import { createContext, useContext, useDeferredValue, useEffect, useMemo, useReducer } from 'react';
 import {
   ALL_CATEGORIES,
   EXPENSE_CATEGORIES,
@@ -102,6 +102,7 @@ function monthlyBuckets(transactions) {
 
 export function DashboardProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const deferredSearch = useDeferredValue(state.filters.search);
 
   useEffect(() => {
     const savedTransactions = localStorage.getItem(storageKeys.transactions);
@@ -144,7 +145,7 @@ export function DashboardProvider({ children }) {
 
     const filteredTransactions = state.transactions
       .filter((txn) => {
-        const searchText = state.filters.search.trim().toLowerCase();
+        const searchText = deferredSearch.trim().toLowerCase();
         const matchesSearch =
           !searchText ||
           txn.description.toLowerCase().includes(searchText) ||
@@ -198,7 +199,7 @@ export function DashboardProvider({ children }) {
         income: INCOME_CATEGORIES,
       },
     };
-  }, [state.transactions, state.filters]);
+  }, [state.transactions, state.filters, deferredSearch]);
 
   const actions = useMemo(
     () => ({

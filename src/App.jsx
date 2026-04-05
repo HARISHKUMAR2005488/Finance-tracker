@@ -1,17 +1,30 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import SummaryCards from './components/dashboard/SummaryCards';
-import BalanceTrendChart from './components/dashboard/BalanceTrendChart';
-import CategoryPieChart from './components/dashboard/CategoryPieChart';
 import InsightsPanel from './components/dashboard/InsightsPanel';
 import Header from './components/ui/Header';
 import RoleBanner from './components/ui/RoleBanner';
+import ConfirmDialog from './components/ui/ConfirmDialog';
 import TransactionFormModal from './components/transactions/TransactionFormModal';
 import TransactionsTable from './components/transactions/TransactionsTable';
 import TransactionsToolbar from './components/transactions/TransactionsToolbar';
-import { DashboardProvider } from './context/DashboardContext';
+import { DashboardProvider, useDashboard } from './context/DashboardContext';
+
+const BalanceTrendChart = lazy(() => import('./components/dashboard/BalanceTrendChart'));
+const CategoryPieChart = lazy(() => import('./components/dashboard/CategoryPieChart'));
+
+function ChartCardFallback() {
+  return (
+    <div className="h-[22rem] animate-pulse rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="mb-4 h-6 w-40 rounded bg-slate-200 dark:bg-slate-700" />
+      <div className="h-[16.5rem] rounded bg-slate-100 dark:bg-slate-900/70" />
+    </div>
+  );
+}
 
 function TransactionsModule() {
+  const { deleteTransaction } = useDashboard();
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [pendingDeleteTransaction, setPendingDeleteTransaction] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const onAdd = () => {
@@ -32,7 +45,10 @@ function TransactionsModule() {
       </div>
 
       <TransactionsToolbar onAdd={onAdd} />
-      <TransactionsTable onEdit={onEdit} />
+      <TransactionsTable
+        onEdit={onEdit}
+        onDeleteRequest={(transaction) => setPendingDeleteTransaction(transaction)}
+      />
 
       {modalOpen && (
         <TransactionFormModal
@@ -40,6 +56,23 @@ function TransactionsModule() {
           onClose={() => {
             setModalOpen(false);
             setSelectedTransaction(null);
+          }}
+        />
+      )}
+
+      {pendingDeleteTransaction && (
+        <ConfirmDialog
+          title="Delete transaction"
+          description={`Delete \"${pendingDeleteTransaction.description}\" from ${new Date(
+            pendingDeleteTransaction.date,
+          ).toLocaleDateString()}? This action cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmTone="danger"
+          onCancel={() => setPendingDeleteTransaction(null)}
+          onConfirm={() => {
+            deleteTransaction(pendingDeleteTransaction.id);
+            setPendingDeleteTransaction(null);
           }}
         />
       )}
@@ -57,8 +90,12 @@ function FinanceDashboardApp() {
           <SummaryCards />
 
           <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <BalanceTrendChart />
-            <CategoryPieChart />
+            <Suspense fallback={<ChartCardFallback />}>
+              <BalanceTrendChart />
+            </Suspense>
+            <Suspense fallback={<ChartCardFallback />}>
+              <CategoryPieChart />
+            </Suspense>
           </section>
 
           <InsightsPanel />
