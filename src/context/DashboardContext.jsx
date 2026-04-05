@@ -11,18 +11,28 @@ import {
   getMonthlySpendingChange,
 } from '../utils/insights';
 
-const DashboardContext = createContext(null);
+const DashboardUIStateContext = createContext(null);
+const DashboardFiltersStateContext = createContext(null);
+const DashboardTransactionsStateContext = createContext(null);
+const DashboardAnalyticsStateContext = createContext(null);
+const DashboardActionsContext = createContext(null);
+
+const DEFAULT_FILTERS = {
+  search: '',
+  type: 'all',
+  category: 'all',
+  sortBy: 'date',
+  sortDirection: 'desc',
+  datePreset: 'all',
+  startDate: '',
+  endDate: '',
+};
 
 const initialState = {
   transactions: [],
   role: 'admin',
   darkMode: false,
-  filters: {
-    search: '',
-    type: 'all',
-    category: 'all',
-    sortBy: 'date',
-  },
+  filters: DEFAULT_FILTERS,
 };
 
 const storageKeys = {
@@ -31,7 +41,60 @@ const storageKeys = {
   darkMode: 'finance-dashboard-dark-v1',
 };
 
-function reducer(state, action) {
+function readJsonStorage(key, fallback) {
+  try {
+    if (typeof window === 'undefined') return fallback;
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function readStringStorage(key, fallback) {
+  try {
+    if (typeof window === 'undefined') return fallback;
+    return window.localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore persistence failures in restricted/private browsing environments.
+  }
+}
+
+function getInitialDarkMode() {
+  const savedDarkMode = readJsonStorage(storageKeys.darkMode, null);
+  if (typeof savedDarkMode === 'boolean') {
+    return savedDarkMode;
+  }
+
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  return false;
+}
+
+function getInitialDashboardState() {
+  const savedTransactions = readJsonStorage(storageKeys.transactions, null);
+  const savedRole = readStringStorage(storageKeys.role, 'admin');
+
+  return {
+    ...initialState,
+    transactions: Array.isArray(savedTransactions) ? savedTransactions : generateMockTransactions(),
+    role: savedRole === 'viewer' ? 'viewer' : 'admin',
+    darkMode: getInitialDarkMode(),
+  };
+}
+
+export function reducer(state, action) {
   switch (action.type) {
     case 'hydrate':
       return {
@@ -50,12 +113,19 @@ function reducer(state, action) {
           ...action.payload,
         },
       };
+    case 'resetFilters':
+      return {
+        ...state,
+        filters: DEFAULT_FILTERS,
+      };
     case 'addTransaction':
+      if (state.role !== 'admin') return state;
       return {
         ...state,
         transactions: [action.payload, ...state.transactions],
       };
     case 'updateTransaction':
+      if (state.role !== 'admin') return state;
       return {
         ...state,
         transactions: state.transactions.map((txn) =>
@@ -63,6 +133,7 @@ function reducer(state, action) {
         ),
       };
     case 'deleteTransaction':
+      if (state.role !== 'admin') return state;
       return {
         ...state,
         transactions: state.transactions.filter((txn) => txn.id !== action.payload),
@@ -70,6 +141,43 @@ function reducer(state, action) {
     default:
       return state;
   }
+}
+
+function isWithinDateRange(txnDate, filters) {
+  const date = new Date(txnDate);
+  date.setHours(0, 0, 0, 0);
+
+  if (filters.datePreset !== 'all') {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const daysMap = { '7d': 7, '30d': 30, '90d': 90, ytd: 365 };
+    const rangeDays = daysMap[filters.datePreset];
+
+    if (filters.datePreset === 'ytd') {
+      const ytdStart = new Date(now.getFullYear(), 0, 1);
+      return date >= ytdStart && date <= now;
+    }
+
+    if (rangeDays) {
+      const start = new Date(now);
+      start.setDate(now.getDate() - (rangeDays - 1));
+      return date >= start && date <= now;
+    }
+  }
+
+  if (filters.startDate) {
+    const start = new Date(filters.startDate);
+    start.setHours(0, 0, 0, 0);
+    if (date < start) return false;
+  }
+
+  if (filters.endDate) {
+    const end = new Date(filters.endDate);
+    end.setHours(0, 0, 0, 0);
+    if (date > end) return false;
+  }
+
+  return true;
 }
 
 function monthlyBuckets(transactions) {
@@ -101,34 +209,19 @@ function monthlyBuckets(transactions) {
 }
 
 export function DashboardProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, undefined, getInitialDashboardState);
   const deferredSearch = useDeferredValue(state.filters.search);
 
   useEffect(() => {
-    const savedTransactions = localStorage.getItem(storageKeys.transactions);
-    const savedRole = localStorage.getItem(storageKeys.role);
-    const savedDarkMode = localStorage.getItem(storageKeys.darkMode);
-
-    dispatch({
-      type: 'hydrate',
-      payload: {
-        transactions: savedTransactions ? JSON.parse(savedTransactions) : generateMockTransactions(),
-        role: savedRole || 'admin',
-        darkMode: savedDarkMode ? JSON.parse(savedDarkMode) : false,
-      },
-    });
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(storageKeys.transactions, JSON.stringify(state.transactions));
+    writeStorage(storageKeys.transactions, JSON.stringify(state.transactions));
   }, [state.transactions]);
 
   useEffect(() => {
-    localStorage.setItem(storageKeys.role, state.role);
+    writeStorage(storageKeys.role, state.role);
   }, [state.role]);
 
   useEffect(() => {
-    localStorage.setItem(storageKeys.darkMode, JSON.stringify(state.darkMode));
+    writeStorage(storageKeys.darkMode, JSON.stringify(state.darkMode));
     document.documentElement.classList.toggle('dark', state.darkMode);
   }, [state.darkMode]);
 
@@ -142,6 +235,8 @@ export function DashboardProvider({ children }) {
       .reduce((sum, txn) => sum + Math.abs(txn.amount), 0);
 
     const balance = income - expenses;
+    const incomeCount = state.transactions.filter((txn) => txn.type === 'income').length;
+    const expenseCount = state.transactions.filter((txn) => txn.type === 'expense').length;
 
     const filteredTransactions = state.transactions
       .filter((txn) => {
@@ -154,15 +249,29 @@ export function DashboardProvider({ children }) {
         const matchesType = state.filters.type === 'all' || txn.type === state.filters.type;
         const matchesCategory =
           state.filters.category === 'all' || txn.category === state.filters.category;
+        const matchesDateRange = isWithinDateRange(txn.date, state.filters);
 
-        return matchesSearch && matchesType && matchesCategory;
+        return matchesSearch && matchesType && matchesCategory && matchesDateRange;
       })
       .sort((a, b) => {
+        const direction = state.filters.sortDirection === 'asc' ? 1 : -1;
+
         if (state.filters.sortBy === 'amount') {
-          return Math.abs(b.amount) - Math.abs(a.amount);
+          return (Math.abs(a.amount) - Math.abs(b.amount)) * direction;
         }
-        return new Date(b.date) - new Date(a.date);
+
+        return (new Date(a.date) - new Date(b.date)) * direction;
       });
+
+    const hasActiveFilters =
+      Boolean(state.filters.search.trim()) ||
+      state.filters.type !== 'all' ||
+      state.filters.category !== 'all' ||
+      state.filters.sortBy !== 'date' ||
+      state.filters.sortDirection !== 'desc' ||
+      state.filters.datePreset !== 'all' ||
+      Boolean(state.filters.startDate) ||
+      Boolean(state.filters.endDate);
 
     const categoryMap = {};
     state.transactions
@@ -181,8 +290,9 @@ export function DashboardProvider({ children }) {
     const highestCategory = getHighestSpendingCategory(categoryBreakdown);
 
     return {
-      summary: { income, expenses, balance },
+      summary: { income, expenses, balance, incomeCount, expenseCount },
       filteredTransactions,
+      hasActiveFilters,
       categoryBreakdown,
       trend,
       insights: {
@@ -206,6 +316,7 @@ export function DashboardProvider({ children }) {
       setRole: (role) => dispatch({ type: 'setRole', payload: role }),
       setDarkMode: (enabled) => dispatch({ type: 'setDarkMode', payload: enabled }),
       setFilters: (payload) => dispatch({ type: 'setFilters', payload }),
+      resetFilters: () => dispatch({ type: 'resetFilters' }),
       addTransaction: (payload) => dispatch({ type: 'addTransaction', payload }),
       updateTransaction: (payload) => dispatch({ type: 'updateTransaction', payload }),
       deleteTransaction: (id) => dispatch({ type: 'deleteTransaction', payload: id }),
@@ -213,22 +324,114 @@ export function DashboardProvider({ children }) {
     [],
   );
 
-  const value = useMemo(
+  const uiState = useMemo(
     () => ({
-      ...state,
-      ...derived,
-      ...actions,
+      role: state.role,
+      darkMode: state.darkMode,
     }),
-    [state, derived, actions],
+    [state.role, state.darkMode],
   );
 
-  return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
+  const filtersState = useMemo(
+    () => ({
+      filters: state.filters,
+      hasActiveFilters: derived.hasActiveFilters,
+      categories: derived.categories,
+    }),
+    [state.filters, derived.hasActiveFilters, derived.categories],
+  );
+
+  const transactionsState = useMemo(
+    () => ({
+      transactions: state.transactions,
+      filteredTransactions: derived.filteredTransactions,
+    }),
+    [state.transactions, derived.filteredTransactions],
+  );
+
+  const analyticsState = useMemo(
+    () => ({
+      summary: derived.summary,
+      categoryBreakdown: derived.categoryBreakdown,
+      trend: derived.trend,
+      insights: derived.insights,
+    }),
+    [derived.summary, derived.categoryBreakdown, derived.trend, derived.insights],
+  );
+
+  return (
+    <DashboardActionsContext.Provider value={actions}>
+      <DashboardUIStateContext.Provider value={uiState}>
+        <DashboardFiltersStateContext.Provider value={filtersState}>
+          <DashboardTransactionsStateContext.Provider value={transactionsState}>
+            <DashboardAnalyticsStateContext.Provider value={analyticsState}>
+              {children}
+            </DashboardAnalyticsStateContext.Provider>
+          </DashboardTransactionsStateContext.Provider>
+        </DashboardFiltersStateContext.Provider>
+      </DashboardUIStateContext.Provider>
+    </DashboardActionsContext.Provider>
+  );
+}
+
+export function useDashboardUIState() {
+  const context = useContext(DashboardUIStateContext);
+  if (!context) {
+    throw new Error('useDashboardUIState must be used within DashboardProvider');
+  }
+  return context;
+}
+
+export function useDashboardFiltersState() {
+  const context = useContext(DashboardFiltersStateContext);
+  if (!context) {
+    throw new Error('useDashboardFiltersState must be used within DashboardProvider');
+  }
+  return context;
+}
+
+export function useDashboardTransactionsState() {
+  const context = useContext(DashboardTransactionsStateContext);
+  if (!context) {
+    throw new Error('useDashboardTransactionsState must be used within DashboardProvider');
+  }
+  return context;
+}
+
+export function useDashboardAnalyticsState() {
+  const context = useContext(DashboardAnalyticsStateContext);
+  if (!context) {
+    throw new Error('useDashboardAnalyticsState must be used within DashboardProvider');
+  }
+  return context;
+}
+
+export function useDashboardState() {
+  return {
+    ...useDashboardUIState(),
+    ...useDashboardFiltersState(),
+    ...useDashboardTransactionsState(),
+    ...useDashboardAnalyticsState(),
+  };
+}
+
+export function useDashboardActions() {
+  const context = useContext(DashboardActionsContext);
+  if (!context) {
+    throw new Error('useDashboardActions must be used within DashboardProvider');
+  }
+  return context;
 }
 
 export function useDashboard() {
-  const context = useContext(DashboardContext);
-  if (!context) {
-    throw new Error('useDashboard must be used within DashboardProvider');
-  }
-  return context;
+  const state = useDashboardState();
+  const actions = useDashboardActions();
+
+  return useMemo(
+    () => ({
+      ...state,
+      ...actions,
+    }),
+    [state, actions],
+  );
 }

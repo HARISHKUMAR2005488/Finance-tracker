@@ -4,11 +4,13 @@ function escapeCsvValue(value) {
   return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
 }
 
-export function buildCsv(headers, rows) {
+export function buildCsv(headers, rows, options = {}) {
+  const { includeBom = true } = options;
   const safeHeaders = headers.map((header) => escapeCsvValue(header)).join(',');
   const safeRows = rows
     .map((row) => row.map((cell) => escapeCsvValue(cell)).join(','))
     .join('\n');
 
-  return `${safeHeaders}\n${safeRows}`;
+  const csvBody = `${safeHeaders}\n${safeRows}`;
+  return includeBom ? `\uFEFF${csvBody}` : csvBody;
 }
