@@ -1,7 +1,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDashboard } from '../../context/DashboardContext';
 import { CATEGORY_COLORS } from '../../data/mockData';
-import EmptyState from '../common/EmptyState';
+import EmptyState from '../ui/EmptyState';
 
 function CategoryPieChart() {
   const { categoryBreakdown } = useDashboard();

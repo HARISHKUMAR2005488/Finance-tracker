@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -22,7 +24,8 @@ body {
   background: radial-gradient(circle at 0% 0%, #f0f9ff 0%, #f8fafc 48%, #eef2ff 100%);
   color: #0f172a;
   overflow-x: hidden;
-  font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+  font-family: 'Manrope', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -116,6 +119,17 @@ textarea {
 
 .animate-content-lift {
   animation: contentLift 0.35s ease-out;
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgb(255 255 255 / 90%) 0%, rgb(248 250 252 / 96%) 100%);
+  border: 1px solid rgb(148 163 184 / 30%);
+  backdrop-filter: blur(8px);
+}
+
+.dark .glass-panel {
+  background: linear-gradient(180deg, rgb(30 41 59 / 75%) 0%, rgb(15 23 42 / 88%) 100%);
+  border: 1px solid rgb(100 116 139 / 40%);
 }
 
 /* Recharts layout stability inside grid/flex containers */

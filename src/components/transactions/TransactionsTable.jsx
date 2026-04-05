@@ -1,7 +1,7 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import { useDashboard } from '../../context/DashboardContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import EmptyState from '../common/EmptyState';
+import EmptyState from '../ui/EmptyState';
 
 function TransactionsTable({ onEdit }) {
   const { filteredTransactions, role, deleteTransaction } = useDashboard();

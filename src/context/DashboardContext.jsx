@@ -5,7 +5,11 @@ import {
   generateMockTransactions,
   INCOME_CATEGORIES,
 } from '../data/mockData';
-import { buildSmartObservation } from '../utils/insights';
+import {
+  buildSmartObservation,
+  getHighestSpendingCategory,
+  getMonthlySpendingChange,
+} from '../utils/insights';
 
 const DashboardContext = createContext(null);
 
@@ -172,13 +176,8 @@ export function DashboardProvider({ children }) {
 
     const trend = monthlyBuckets(state.transactions);
 
-    const currentMonth = trend[trend.length - 1] || { expenses: 0 };
-    const previousMonth = trend[trend.length - 2] || { expenses: 0 };
-    const monthlyChange = previousMonth.expenses
-      ? ((currentMonth.expenses - previousMonth.expenses) / previousMonth.expenses) * 100
-      : 0;
-
-    const highestCategory = categoryBreakdown[0] || null;
+    const monthlyChange = getMonthlySpendingChange(trend);
+    const highestCategory = getHighestSpendingCategory(categoryBreakdown);
 
     return {
       summary: { income, expenses, balance },
